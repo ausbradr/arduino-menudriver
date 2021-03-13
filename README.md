@@ -1,5 +1,4 @@
 # arduino-menudriver
-****NOTE: This git is incomplete and a work in progress. I'm in the process of tidying up my code, designing some connection diagram graphics, and producing a bare bones plug/play code snippet to make it easier for those starting out with Arduino. I'll remove this note when I feel the git is ready.*** 
 
 A basic 4 button controlled menu demo for Arduino Uno / 1602LCD via I2C. 
 by Brad Rogers - 8th March 2021. 
