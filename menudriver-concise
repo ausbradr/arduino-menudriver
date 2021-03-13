@@ -1,0 +1,711 @@
+// MENU DRIVER For Arduino Uno
+// by Brad Rogers, 8th March 2021
+
+// A succinct, comment reduced version of menu driver. Ready to copy/paste into your project as you need. 
+
+//Let's setup the 1602 LCD via I2C:
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+//Let's select the pin we'll use for the single tone buzzer:
+int buzzer = 12; //the pin of the active buzzer
+
+//Let's select the pin we'll use for the loudspeaker:
+int tonePin = 8;
+
+//Let's select the pin we'll use for the LED:
+int LedPin = 9;
+
+//4buttonscan prerequisites
+int buttonA = 2;
+int buttonB = 3;
+int buttonC = 4;
+int buttonD = 5;
+//Define the variables used to store whether each button is pressed
+int buttonAstate=0;
+int buttonBstate=0;
+int buttonCstate=0;
+int buttonDstate=0;
+//define the variable and zero it, for keypad total. This will help us indicate simultaneous keypresses, if your program is looking for that.
+int keypadtotal=0;
+
+
+//For the sake of the config demo, let's define some variables for it. 
+int happy = 128; //initial value for parameter "happiness"
+int happymin = 0; // the lowest it can go
+int happymax = 255; // the highest it can go
+int happybuffer = 0; //define the variable for a temp value to be placed, during it's config page
+
+int intens = 96; //initial value for parameter "intensity"
+int intensmin = 0; // the lowest it can go
+int intensmax = 255; // the highest it can go
+int intensbuffer = 0; //define the variable for a temp value to be placed, during it's config page
+
+
+
+
+
+void setup() {
+  // put your setup code here, to run once:
+
+//LCD init:
+lcd.init(); // initialize the lcd
+
+//Buzzer Stuff:
+  pinMode(buzzer, OUTPUT); //initialize the buzzer pin as an output
+
+//LED Stuff:
+pinMode(LedPin, OUTPUT); // declare LED pins as output
+
+
+//Initial setup indicators and such:
+acceptbeep(); //Let's test the buzzer
+delay (1000); //wait a second
+tone(tonePin, 196, 1000); //A welcome tone to indicate startup OK. Like an old mobile phone.
+
+//4buttonscan void setup lines:
+//For the pins we're connecting the buttons to, we need to define them as inputs:
+pinMode(buttonA, INPUT);
+pinMode(buttonB, INPUT);
+pinMode(buttonC, INPUT);
+pinMode(buttonD, INPUT);
+
+
+
+//Let's test the LCD
+lcd.backlight(); // Turn backlight On
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("WELCOME TO"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("WORD PROMPTING"); // Second line of LCD
+
+
+//clear the display for the loop code to run:
+lcd.clear();
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Now to the meat of the program:
+void loop() {
+
+
+//This is the home screen. If you wished to achieve any multitasking here, you could write a customloop that interrogates the buttons with keypadcheckonce()
+startprog:
+lcd.clear();
+
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("Menu Demo"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("MENU            "); // Second line of LCD
+
+//check the keypad
+homewait:
+keypadcheckloop();
+keytone();
+
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);failtoneA();//The reason we're using a "fail tone" here is because the button isn't required at this page. It's nice to let the user know this. 
+}
+
+if (keypadtotal == 50) {
+  delay(200);failtoneA();
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto entermenu;
+}
+
+if (keypadtotal == 200) {
+  delay(200);failtoneA();
+}
+goto homewait;
+
+//drawing / control of main menu starts here
+entermenu:
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("  Information   "); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    EXIT"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto mainmenuconfig;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto mainmenuled;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto infopage;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto startprog;
+}
+
+goto entermenu;
+//main menu ends here
+
+
+
+infopage:
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("Btn  A0 B0 C0 D0"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("BOTH S-KEYS EXIT"); // Second line of LCD
+delay(100);
+
+updatekeyinfo:
+keypadcheckonce();
+
+//test the keypad results, and update the LCD here
+if (keypadtotal == 10) {
+  lcd.setCursor(6, 0);lcd.print("1"); 
+}
+
+if (keypadtotal == 50) {
+  lcd.setCursor(9, 0);lcd.print("1"); 
+}
+
+if (keypadtotal == 100) {
+  lcd.setCursor(12, 0);lcd.print("1"); 
+}
+
+if (keypadtotal == 200) {
+  lcd.setCursor(15, 0);lcd.print("1"); 
+}
+
+if (keypadtotal == 300) {
+  fancytoneA();delay(100);goto entermenu; 
+}
+
+
+if (keypadtotal == 0) {
+  goto infopage; 
+}
+
+
+
+goto updatekeyinfo;
+
+
+
+mainmenuconfig:// This is the main menu option for settings
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print(" Configuration"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    EXIT"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto mainmenuchiptune;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto entermenu;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto configmenu;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto startprog;
+}
+
+goto mainmenuconfig;
+
+
+
+
+
+
+
+
+
+
+
+mainmenuled: //This is the main menu option for LED flash
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("  LED Flasher"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    EXIT"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto entermenu;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto mainmenuchiptune;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto ledflasher;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto startprog;
+}
+
+goto mainmenuled;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mainmenuchiptune: // This is the main menu for chiptune demo
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("    Chiptune    "); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    EXIT"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto mainmenuled;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto mainmenuconfig;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto chiptunedemo;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto startprog;
+}
+
+goto mainmenuchiptune;
+
+
+
+
+
+
+//Okay, now we're done with all the items that sit in the root main menu
+//Now let's write things that go in the configuration menu
+//At this point you can basically see that adding menus is as easy as copying a bunch of lcd commands / if statements, pasting them, and tweaking them. 
+
+// and some things that sit within the config menu:
+
+configmenu: //The config menu
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print(" Set Happiness"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    BACK"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto configmenuintens;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto configmenuintens;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto happymenu;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto mainmenuconfig;
+}
+
+goto configmenu;
+
+
+
+
+
+
+
+configmenuintens:
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print(" Set Intensity"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    BACK"); // Second line of LCD
+
+keypadcheckloop();
+keytone();
+delay(50);
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(200);goto configmenu;
+}
+
+if (keypadtotal == 50) {
+  delay(200);goto configmenu;
+}
+
+if (keypadtotal == 100) {
+  delay(200);goto intensmenu;
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto mainmenuconfig;
+}
+
+goto configmenuintens;
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print(" Set Intensity"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    BACK"); // Second line of LCD - By this stage, if you're using OK <> Back a lot, you could probably subroutine this out to save space in a tight program. 
+
+
+
+
+
+
+
+//This is how a settings adjust dialog would appear, use up/down arrows to adjust, softkey OK to save changes, softkey back to abandon changes. 
+happymenu:
+happybuffer = happy;
+
+happycore:
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("Happy: "); // First line of LCD
+lcd.setCursor(8, 0);lcd.print(happybuffer); //let's add the value
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    BACK"); // Second line of LCD - By this stage, if you're using OK <> Back a lot, you could probably subroutine this out to save space in a tight program. 
+
+keypadcheckloop();
+keytone();
+delay(50); //use a slower delay here to quicker advance numbers when holding in a button
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(50);happybuffer = happybuffer + 1; //up by one using a shorter delay to allow speeding. Adjust this to taste.
+}
+
+if (keypadtotal == 50) {
+  delay(50);happybuffer = happybuffer - 1; //down by one using a shorter delay to allow speeding
+}
+
+if (keypadtotal == 100) {
+  delay(200);happy = happybuffer;acceptbeep();goto configmenu; //store the buffered value, and go back
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto configmenu; //just go back, we don't give a shit about the buffer
+}
+
+//here, before we show anything on the screen at the top of this loop, we want to check that the user hasn't selected a value out of the allowed range for this variable. Let's check that.
+if (happybuffer >= happymax){
+  happybuffer = happymax;limittone();
+}
+//here, before we show anything on the screen at the top of this loop, we want to check that the user hasn't selected a value out of the allowed range for this variable. Let's check that.
+if (happybuffer <= happymin){
+  happybuffer = happymin;limittone();
+}
+
+
+
+
+goto happycore;
+
+
+
+
+//LAZY CODER TIP. If you can't be bothered rewriting similar code for similar features, like the happy / intensity menu we're doing here, then name your variables smartly at the top.
+// You'll notice I've been very uniform on happyness variables. Such as happy, happybuffer, happymax and happymin.... Have a close look at this. I copied the happiness config code, pasted it into notepad, 
+// then I did a find/replace on any mention of happy, replaced happy with intenst, et voila. The only change I need to make is what menu we go back to. It's not configmenu, it is configmenuintens.
+intensmenu:
+intensbuffer = intens;
+
+intenscore:
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("Intens: "); // First line of LCD
+lcd.setCursor(8, 0);lcd.print(intensbuffer); //let's add the value
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("OK    <>    BACK"); // Second line of LCD - By this stage, if you're using OK <> Back a lot, you could probably subroutine this out to save space in a tight program. 
+
+keypadcheckloop();
+keytone();
+delay(50); //use a slower delay here to quicker advance numbers when holding in a button
+//test the keypad results
+if (keypadtotal == 10) {
+  delay(50);intensbuffer = intensbuffer + 1; //up by one using a shorter delay to allow speeding. Adjust this to taste.
+}
+
+if (keypadtotal == 50) {
+  delay(50);intensbuffer = intensbuffer - 1; //down by one using a shorter delay to allow speeding
+}
+
+if (keypadtotal == 100) {
+  delay(200);intens = intensbuffer;acceptbeep();goto configmenuintens; //store the buffered value, and go back
+}
+
+if (keypadtotal == 200) {
+  delay(200);goto configmenuintens; //just go back, we don't give a shit about the buffer
+}
+
+//here, before we show anything on the screen at the top of this loop, we want to check that the user hasn't selected a value out of the allowed range for this variable. Let's check that.
+if (intensbuffer >= intensmax){
+  intensbuffer = intensmax;limittone();
+}
+//here, before we show anything on the screen at the top of this loop, we want to check that the user hasn't selected a value out of the allowed range for this variable. Let's check that.
+if (intensbuffer <= intensmin){
+  intensbuffer = intensmin;limittone();
+}
+
+
+
+
+goto intenscore;
+
+
+
+
+
+
+//some demos for LED / chiptunes
+
+ledflasher:
+//In this little section, we're not going to give much thoroughfare in any menus. We just flash the LED, and give the user only the option to go back
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("LED is flashing!"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("            EXIT"); // Second line of LCD
+
+ledflashercore: //Once the screen is drawn, we don't want to keep drawing it making it flicker while we run our own loop.
+blinkLED(9, 100); //Do the thing that we're wanting to do here, everything else watches display and kb
+
+keypadcheckonce();
+
+
+//test the keypad results
+
+if (keypadtotal == 200) {
+  delay(200);keytone();delay(50);goto mainmenuled; // you'll note we've moved the beep / debounce timer here. Better for user experience. 
+}
+
+goto ledflashercore;
+
+
+
+
+
+
+
+
+
+
+
+chiptunedemo:
+//In this little section, we're not going to give much thoroughfare in any menus. We just flash the LED, and give the user only the option to go back
+lcd.clear();
+lcd.setCursor(0, 0); // Set cursor at position zero(0) on first line of 1602 LCD
+lcd.print("     Noisy!"); // First line of LCD
+lcd.setCursor(0, 1); // Set cursor at position zero (0) on second line of 1602 LCD
+lcd.print("            EXIT"); // Second line of LCD
+
+chiptunedemocore: //Once the screen is drawn, we don't want to keep drawing it making it flicker while we run our own loop.
+failtoneA();
+fancytoneA();
+
+keypadcheckonce();
+
+
+//test the keypad results
+
+if (keypadtotal == 200) {
+  delay(200);keytone();delay(50);goto mainmenuchiptune; // you'll note we've moved the beep / debounce timer here. Better for user experience. 
+}
+
+goto chiptunedemocore;
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Some of my subroutines
+
+
+//4buttonscan subroutines that get added below just outside of void loop to get things running. 
+void keypadcheckloop(){ //This halts program procession until a button is pressed
+do
+{
+//reset keypad total
+keypadtotal =0;
+//check the buttons, and don't return to void loop until we have a keypress.
+buttonAstate = digitalRead(buttonA);
+if (buttonAstate!=0){
+  keypadtotal = keypadtotal + 10;
+}
+buttonBstate = digitalRead(buttonB);
+if (buttonBstate!=0){
+  keypadtotal = keypadtotal + 50;
+}
+buttonCstate = digitalRead(buttonC);
+if (buttonCstate!=0){
+  keypadtotal = keypadtotal + 100;
+}
+buttonDstate = digitalRead(buttonD);
+if (buttonDstate!=0){
+  keypadtotal = keypadtotal + 200;
+}
+} while (keypadtotal < 10);
+}
+
+
+
+
+void keypadcheckonce(){ // This checks the buttons once, quickly, but lets you get on with other stuff, like cycling colours on an LED strip. You repeatedly call this one in your own loop!
+//reset keypad total
+keypadtotal =0;
+//check the keypad once and return control to void loop
+buttonAstate = digitalRead(buttonA);
+if (buttonAstate!=0){
+  keypadtotal = keypadtotal + 10;
+}
+buttonBstate = digitalRead(buttonB);
+if (buttonBstate!=0){
+  keypadtotal = keypadtotal + 50;
+}
+buttonCstate = digitalRead(buttonC);
+if (buttonCstate!=0){
+  keypadtotal = keypadtotal + 100;
+}
+buttonDstate = digitalRead(buttonD);
+if (buttonDstate!=0){
+  keypadtotal = keypadtotal + 200;
+}
+}
+
+
+
+//A nice, short triple beep on the buzzer used for showing success
+void acceptbeep()
+{
+  digitalWrite(buzzer, HIGH); // Power the buzzer
+  delay(50); // Keep the buzzer on for this long
+  digitalWrite(buzzer, LOW); // Shut the buzzer up.
+  delay(30); // Keep the buzzer on for this long
+  digitalWrite(buzzer, HIGH); // Power the buzzer
+  delay(50); // Keep the buzzer on for this long
+  digitalWrite(buzzer, LOW); // Shut the buzzer up.
+  delay(30); // Keep the buzzer on for this long
+  digitalWrite(buzzer, HIGH); // Power the buzzer
+  delay(50); // Keep the buzzer on for this long
+  digitalWrite(buzzer, LOW); // Shut the buzzer up.
+}
+
+
+
+// A satisfying beep on keypresses for the speaker
+void keytone()
+{
+  tone(tonePin, 784, 100);
+}
+
+//a tone to indicate end of range
+void limittone()
+{
+  tone(tonePin, 2000, 200);
+}
+
+
+
+// A fancy tone #A
+void fancytoneA()
+{
+  tone(tonePin, 300, 100);
+  delay(50);
+  tone(tonePin, 900, 100);
+  delay(50);
+  tone(tonePin, 1800, 100);
+  delay(50);
+  tone(tonePin, 3000, 100);
+}
+
+// A fail tone #A
+void failtoneA()
+{
+  tone(tonePin, 3000, 100);
+  delay(50);
+  tone(tonePin, 1800, 100);
+  delay(50);
+  tone(tonePin, 900, 100);
+  delay(50);
+  tone(tonePin, 300, 100);
+}
+
+
+
+
+
+// blink the LED on the given pin for the duration in milliseconds
+void blinkLED(int pin, int duration)
+{
+  digitalWrite(pin, HIGH); // turn LED on
+  delay(duration);
+  digitalWrite(pin, LOW); // turn LED off
+  delay(duration);
+}
